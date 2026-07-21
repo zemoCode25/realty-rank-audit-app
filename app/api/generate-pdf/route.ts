@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "load" });
 
     const pdf = await page.pdf({
       format: "Letter",
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     });
 
     const filename = `${data.contact.replace(/\s+/g, "_")}_GEO_Audit.pdf`;
-    return new NextResponse(pdf, {
+    return new NextResponse(new Blob([pdf], { type: "application/pdf" }), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
