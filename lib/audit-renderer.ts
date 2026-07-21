@@ -1,16 +1,15 @@
-// TypeScript port of the Python/WeasyPrint HTML generator (AI_Visibility_Audit.py).
-// Produces a single self-contained HTML document, styled for print/PDF via Puppeteer.
+// Compressed 3-4 page HTML/CSS report generator, styled per the InboundREM
+// RealtyRank brand system (AI_Visibility_Audit.py / AI_Visibility_Audit_PDF_SOP.md),
+// condensed from the original 10-13 page layout into a single-glance report.
 
 import type {
-  AIQueryGroup,
   AuditData,
-  Category,
+  CategoryScore,
   Conclusion,
-  FAQ,
+  CoreAnswer,
   Fix,
-  PlanTier,
-  PriorityIssue,
-  PriorityPage,
+  MainIssue,
+  QueryGroup,
 } from "@/lib/types";
 import { tierColor, tierLabel } from "@/lib/utils";
 
@@ -23,329 +22,252 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function tierGrade(score: number): string {
-  if (score >= 85) return "A";
-  if (score >= 70) return "B";
-  if (score >= 60) return "C";
-  return "D";
+// Minimal **bold** support so a summary/conclusion can emphasize a key phrase.
+function richText(str: string): string {
+  const escaped = escapeHtml(str);
+  return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
 
-// ---------------------------------------------------------------------------
-// Icons (§10) — inline SVG paths, one per category
-// ---------------------------------------------------------------------------
-
-const ICONS: Record<Category["icon"], string> = {
-  crawl: `<path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/>`,
-  entity: `<circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="5" y2="17"/><line x1="12" y1="7" x2="19" y2="17"/>`,
-  trust: `<path d="M12 2L3 7v6c0 5 4 9.7 9 11 5-1.3 9-6 9-11V7z"/><polyline points="9,12 11,14 15,10"/>`,
-  answer: `<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>`,
-  local: `<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>`,
-  media: `<circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/>`,
+const TIMELINE_COLOR: Record<Fix["timeline"], string> = {
+  Immediate: "#FB7A00",
+  "30 Days": "#F2A60C",
+  "60 Days": "#8A92A0",
 };
 
-function icon(name: Category["icon"], size = 28): string {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
-}
-
 // ---------------------------------------------------------------------------
-// SVG chart math (§9)
+// Donut SVG (ported from AI_Visibility_Audit.py's donut())
 // ---------------------------------------------------------------------------
 
-function donut(value: number, size = 96, strokeWidth = 10, label?: string): string {
-  const r = (size - strokeWidth) / 2;
+function donut(
+  value: number,
+  opts: { size?: number; sw?: number; fs?: number; subLabel?: string; track?: string } = {}
+): string {
+  const { size = 96, sw = 10, fs = 28, subLabel, track = "#EAEDF2" } = opts;
+  const r = (size - sw) / 2;
   const cx = size / 2;
   const cy = size / 2;
   const C = 2 * Math.PI * r;
   const filled = (value / 100) * C;
   const gap = C - filled;
-  const color = tierColor(value);
-  const fontSize = size * 0.28;
-  const numY = label ? cy + fontSize * 0.18 : cy + fontSize * 0.355;
+  const col = tierColor(value);
+  const numY = subLabel ? cy + fs * 0.18 : cy + fs * 0.355;
 
   return `
-  <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#E5E7EB" stroke-width="${strokeWidth}" />
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"
-      stroke-dasharray="${filled} ${gap}" stroke-linecap="round"
+  <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="donut">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${track}" stroke-width="${sw}" />
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="${sw}"
+      stroke-linecap="round" stroke-dasharray="${filled.toFixed(2)} ${gap.toFixed(2)}"
       transform="rotate(-90 ${cx} ${cy})" />
-    <text x="${cx}" y="${numY}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="#111827">${Math.round(value)}</text>
-    ${label ? `<text x="${cx}" y="${cy + fontSize * 0.85}" text-anchor="middle" font-size="${fontSize * 0.32}" fill="#6B7280">${escapeHtml(label)}</text>` : ""}
+    <text x="${cx}" y="${numY}" text-anchor="middle" class="donut-num" style="font-size:${fs}px;fill:${col}">${Math.round(value)}</text>
+    ${subLabel ? `<text x="${cx}" y="${cy + fs * 0.64}" text-anchor="middle" class="donut-sub" style="fill:${col}">${escapeHtml(subLabel)}</text>` : ""}
   </svg>`;
 }
 
-function radar(categories: Category[], size = 480): string {
-  const cx = size / 2;
-  const cy = size / 2;
-  const n = categories.length;
-  const R = size / 2 - (n <= 5 ? 88 : 82);
+// ---------------------------------------------------------------------------
+// Shared chrome: masthead header + footer
+// ---------------------------------------------------------------------------
 
-  const pt = (i: number, frac: number): [number, number] => {
-    const ang = -Math.PI / 2 + (i * 2 * Math.PI) / n;
-    return [cx + R * frac * Math.cos(ang), cy + R * frac * Math.sin(ang)];
-  };
-
-  const rings = [0.25, 0.5, 0.75, 1.0]
-    .map((frac) => {
-      const points = categories.map((_, i) => pt(i, frac).join(",")).join(" ");
-      return `<polygon points="${points}" fill="none" stroke="#E5E7EB" stroke-width="1" />`;
-    })
-    .join("");
-
-  const axes = categories
-    .map((_, i) => {
-      const [x, y] = pt(i, 1);
-      return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#E5E7EB" stroke-width="1" />`;
-    })
-    .join("");
-
-  const polygonPoints = categories.map((cat, i) => pt(i, cat.score / 100).join(",")).join(" ");
-
-  const dots = categories
-    .map((cat, i) => {
-      const [x, y] = pt(i, cat.score / 100);
-      return `<circle cx="${x}" cy="${y}" r="4" fill="${tierColor(cat.score)}" />`;
-    })
-    .join("");
-
-  const labels = categories
-    .map((cat, i) => {
-      const [x, y] = pt(i, 1.24);
-      const lines = cat.radarLabel.split("\n");
-      const tspans = lines
-        .map((line, li) => `<tspan x="${x}" dy="${li === 0 ? 0 : 14}">${escapeHtml(line)}</tspan>`)
-        .join("");
-      return `<text x="${x}" y="${y}" text-anchor="middle" font-size="13" font-weight="600" fill="#374151">${tspans}</text>`;
-    })
-    .join("");
-
+function pageHeader(data: AuditData, big: boolean): string {
   return `
-  <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    ${rings}
-    ${axes}
-    <polygon points="${polygonPoints}" fill="#FB7A00" fill-opacity="0.18" stroke="#FB7A00" stroke-width="2" />
-    ${dots}
-    ${labels}
-  </svg>`;
+  <div class="masthead">
+    <div class="mh-eyebrow">INBOUNDREM &nbsp;|&nbsp; RealtyRank AI Visibility Audit</div>
+    <div class="mh-row ${big ? "mh-row-lg" : ""}">
+      <div class="mh-name">${escapeHtml(data.contact)} / ${escapeHtml(data.client)}</div>
+      <div class="mh-meta">${escapeHtml(data.site)} &nbsp;|&nbsp; ${escapeHtml(data.date)}</div>
+    </div>
+  </div>
+  <div class="mh-rule"></div>`;
 }
 
-function hbar(label: string, score: number): string {
-  const color = tierColor(score);
-  return `
-  <div class="hbar">
-    <div class="hbar-label">${escapeHtml(label)}</div>
-    <div class="hbar-track"><div class="hbar-fill" style="width:${score}%;background:${color}"></div></div>
-    <div class="hbar-score" style="color:${color}">${score}</div>
-  </div>`;
+function pageFooter(pageNum: number): string {
+  return `<div class="pfoot"><span>Confidential &nbsp;|&nbsp; inboundrem.com</span><span>Page ${pageNum}</span></div>`;
+}
+
+function sectionBar(text: string): string {
+  return `<div class="section-bar">${escapeHtml(text)}</div>`;
 }
 
 // ---------------------------------------------------------------------------
-// Section renderers
+// Page 1 — Cover + Scorecard
 // ---------------------------------------------------------------------------
 
-function renderCover(data: AuditData): string {
-  const tier = data.overallTier ?? tierLabel(data.overall);
-  return `
-  <section class="page cover">
-    <div class="cover-eyebrow">AI Visibility Audit</div>
-    <div class="cover-ring">${donut(data.overall, 200, 16)}</div>
-    <div class="cover-grade">Grade ${tierGrade(data.overall)} · ${escapeHtml(tier)}</div>
-    <h1 class="cover-client">${escapeHtml(data.client)}</h1>
-    <div class="cover-contact">${escapeHtml(data.contact)}</div>
-    <div class="cover-meta">${escapeHtml(data.market)} &middot; ${escapeHtml(data.site)}</div>
-    <div class="cover-date">${escapeHtml(data.date)}</div>
-  </section>`;
-}
+function renderPage1(data: AuditData): string {
+  const tier = tierLabel(data.overall);
+  const col = tierColor(data.overall);
 
-function renderScorecard(data: AuditData): string {
-  const bars = data.categories.map((cat) => hbar(`${cat.letter} · ${cat.name}`, cat.score)).join("");
   const donuts = data.categories
     .map(
-      (cat) => `
-      <div class="donut-cell">
-        ${donut(cat.score, 96, 10)}
-        <div class="donut-cell-label">${cat.letter} &middot; ${escapeHtml(cat.name)}</div>
+      (c: CategoryScore) => `
+      <div class="sc-cell">
+        ${donut(c.score, { size: 108, sw: 10, fs: 30, track: "#262A33" })}
+        <div class="sc-name">${escapeHtml(c.name)}</div>
       </div>`
     )
     .join("");
 
   return `
   <section class="page">
-    <h2 class="section-title">Scorecard</h2>
-    <div class="scorecard-grid">
-      <div class="scorecard-radar">${radar(data.categories)}</div>
-      <div class="scorecard-bars">${bars}</div>
+    ${pageHeader(data, true)}
+
+    <div class="score-card">
+      <div class="score-ring">${donut(data.overall, { size: 170, sw: 15, fs: 46, subLabel: tier, track: "#262A33" })}</div>
+      <div class="score-right">
+        <div class="score-cap">Overall AI Visibility Score</div>
+        <div class="score-big" style="color:${col}">${data.overall} / 100</div>
+        <div class="score-sub">${escapeHtml(tier)} — ${escapeHtml(data.market)}</div>
+        <div class="score-potential">Conservative potential after fixes: <strong>${escapeHtml(data.potentialRange)} / 100</strong></div>
+      </div>
     </div>
-    <div class="donut-grid">${donuts}</div>
-    ${pageFooter(data, "Scorecard")}
+
+    <div class="summary-box">${richText(data.summary)}</div>
+
+    <div class="scorecard-panel">
+      ${sectionBar("Scorecard")}
+      <div class="sc-grid" style="grid-template-columns:repeat(${Math.min(data.categories.length, 3)},1fr)">${donuts}</div>
+      <div class="tier-legend">
+        <span style="color:#1BA85A">Strong &ge; 85</span>
+        <span style="color:#F2A60C">Moderate 70&ndash;84</span>
+        <span style="color:#E24A36">Weak 60&ndash;69</span>
+        <span style="color:#C0392B">Critical &lt; 60</span>
+      </div>
+    </div>
+
+    ${pageFooter(1)}
   </section>`;
 }
 
-function renderCategoryBlock(cat: Category): string {
-  const color = tierColor(cat.score);
-  return `
-  <section class="page category-page">
-    <div class="category-head">
-      <div class="category-icon" style="color:${color}">${icon(cat.icon, 32)}</div>
-      <div>
-        <div class="category-letter">Category ${cat.letter}</div>
-        <h2 class="category-name">${escapeHtml(cat.name)}</h2>
-      </div>
-      <div class="category-score">${donut(cat.score, 84, 9)}</div>
-      <div class="tier-badge" style="background:${color}">${escapeHtml(tierLabel(cat.score))}</div>
-    </div>
-    <p class="category-lead">${escapeHtml(cat.lead)}</p>
-    <div class="category-columns">
-      <div class="category-col">
-        <h3 class="col-title strengths">Working</h3>
-        <ul>${cat.strengths.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-      </div>
-      <div class="category-col">
-        <h3 class="col-title problems">Problems</h3>
-        <ul>${cat.problems.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-      </div>
-      <div class="category-col">
-        <h3 class="col-title fixes">Fixes</h3>
-        <ul>${cat.fixes.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-      </div>
-    </div>
-  </section>`;
-}
+// ---------------------------------------------------------------------------
+// Page 2 — Key Strengths & Main Issues + Highest-Priority Fixes
+// ---------------------------------------------------------------------------
 
-function renderPriorityIssue(issue: PriorityIssue): string {
-  return `
-  <section class="page priority-page">
-    <h2 class="section-title on-dark">Priority Issue</h2>
-    <p class="priority-text">${escapeHtml(issue.text)}</p>
-    <div class="chain">${escapeHtml(issue.chain)}</div>
-  </section>`;
-}
-
-function renderActionPlan(data: AuditData): string {
-  const issues = data.severeIssues
-    .map((issue, i) => `<li><span class="badge-num">${i + 1}</span>${escapeHtml(issue)}</li>`)
-    .join("");
-
-  const tiers = data.actionPlan
+function renderPage2(data: AuditData): string {
+  const strengths = data.keyStrengths.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+  const issues = data.mainIssues
     .map(
-      (tier: PlanTier) => `
-      <div class="plan-tier" style="border-top-color:${tier.color}">
-        <div class="plan-tier-head">
-          <span class="plan-tier-name">${escapeHtml(tier.name)}</span>
-          <span class="plan-tier-tag" style="background:${tier.color}">${escapeHtml(tier.tag)}</span>
-        </div>
-        <ul>${tier.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-      </div>`
+      (issue: MainIssue, i) => `
+      <li>
+        <div class="issue-title">${i + 1}. ${escapeHtml(issue.title)}</div>
+        <div class="issue-text">${escapeHtml(issue.text)}</div>
+      </li>`
     )
     .join("");
 
-  return `
-  <section class="page">
-    <h2 class="section-title">Action Plan</h2>
-    <h3 class="subsection-title">Severe Issues</h3>
-    <ul class="severe-issues">${issues}</ul>
-    <div class="plan-grid">${tiers}</div>
-    <div class="cta-banner">Ready to close these gaps? Start with the Top Tier fixes above.</div>
-  </section>`;
-}
-
-function renderFAQs(faqs: FAQ[]): string {
-  const items = faqs
+  const fixRows = data.fixes
     .map(
-      (faq) => `
-      <div class="faq-item">
-        <div class="faq-question">${escapeHtml(faq.question)}</div>
-        <div class="faq-answer">${escapeHtml(faq.answer)}</div>
-      </div>`
-    )
-    .join("");
-
-  return `
-  <section class="page">
-    <h2 class="section-title">Frequently Asked Questions</h2>
-    <div class="faq-grid">${items}</div>
-  </section>`;
-}
-
-function renderPriorityPages(pages: PriorityPage[]): string {
-  const rows = pages
-    .map(
-      (p) => `
+      (fix: Fix) => `
       <tr>
-        <td>${escapeHtml(p.page)}</td>
-        <td>${escapeHtml(p.purpose)}</td>
-        <td><span class="priority-pill priority-${(p.priority ?? "Medium").toLowerCase()}">${escapeHtml(p.priority ?? "Medium")}</span></td>
-      </tr>`
-    )
-    .join("");
-
-  return `
-  <table class="pages-table">
-    <thead><tr><th>Page</th><th>Purpose</th><th>Priority</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
-}
-
-function renderAIQueries(queries: AIQueryGroup[]): string {
-  return queries
-    .map(
-      (group) => `
-      <div class="query-group">
-        <h3 class="query-group-title">${escapeHtml(group.group)}</h3>
-        <div class="query-pills">${group.items.map((q) => `<span class="query-pill">${escapeHtml(q)}</span>`).join("")}</div>
-      </div>`
-    )
-    .join("");
-}
-
-function renderPagesAndQueries(data: AuditData): string {
-  return `
-  <section class="page">
-    <h2 class="section-title">Target Pages &amp; Queries</h2>
-    ${data.priorityPages?.length ? renderPriorityPages(data.priorityPages) : ""}
-    ${data.aiQueries?.length ? `<div class="queries-col">${renderAIQueries(data.aiQueries)}</div>` : ""}
-  </section>`;
-}
-
-function renderFixList(fixes: Fix[]): string {
-  const rows = fixes
-    .map(
-      (fix) => `
-      <tr>
-        <td class="fix-num">${fix.number}</td>
-        <td>${escapeHtml(fix.description)}</td>
-        <td class="fix-lift">${escapeHtml(fix.scoreLift)}</td>
-        <td><span class="difficulty-badge difficulty-${fix.difficulty.toLowerCase()}">${escapeHtml(fix.difficulty)}</span></td>
+        <td class="fix-n">${fix.n}</td>
+        <td class="fix-tx">${escapeHtml(fix.fix)}</td>
+        <td class="fix-tl" style="color:${TIMELINE_COLOR[fix.timeline]}">${escapeHtml(fix.timeline)}</td>
       </tr>`
     )
     .join("");
 
   return `
   <section class="page">
-    <h2 class="section-title">Fix List</h2>
+    ${pageHeader(data, false)}
+
+    ${sectionBar("Key Strengths & Main Issues")}
+    <div class="split">
+      <div class="strengths-box">
+        <div class="split-h strengths-h">Key Strengths</div>
+        <ul class="strengths-list">${strengths}</ul>
+      </div>
+      <div class="issues-box">
+        <div class="split-h issues-h">Main Issues</div>
+        <ul class="issues-list">${issues}</ul>
+      </div>
+    </div>
+
+    ${sectionBar("Highest-Priority Fixes")}
     <table class="fix-table">
-      <thead><tr><th>#</th><th>Description</th><th>Score Lift</th><th>Difficulty</th></tr></thead>
-      <tbody>${rows}</tbody>
+      <thead><tr><th>#</th><th>Fix</th><th>Timeline</th></tr></thead>
+      <tbody>${fixRows}</tbody>
     </table>
+
+    ${pageFooter(2)}
   </section>`;
 }
 
-function renderConclusion(conclusion: Conclusion): string {
+// ---------------------------------------------------------------------------
+// Page 3 — Recommended Core Answer Blocks + AI Query Opportunities / Roadmap
+// ---------------------------------------------------------------------------
+
+function renderPage3(data: AuditData): string {
+  const answers = data.coreAnswers
+    .map(
+      (a: CoreAnswer) => `
+      <div class="answer-card">
+        <div class="answer-q">${escapeHtml(a.q)}</div>
+        <div class="answer-a">${escapeHtml(a.a)}</div>
+      </div>`
+    )
+    .join("");
+
+  const queryGroups = data.queryGroups
+    .map(
+      (g: QueryGroup) => `
+      <div class="query-group">
+        <div class="query-group-h">${escapeHtml(g.group)}</div>
+        <ul class="query-list">${g.items.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
+      </div>`
+    )
+    .join("");
+
   return `
-  <section class="page conclusion-page">
-    <h2 class="section-title on-dark">Conclusion</h2>
-    <div class="score-progression">
-      <div class="score-box">${conclusion.currentScore}<span>Current</span></div>
-      <div class="score-arrow">&rarr;</div>
-      <div class="score-box projected">${escapeHtml(conclusion.projectedScore)}<span>Projected</span></div>
+  <section class="page">
+    ${pageHeader(data, false)}
+
+    ${sectionBar("Recommended Core Answer Blocks")}
+    <div class="answer-grid">${answers}</div>
+
+    ${sectionBar("AI Query Opportunities | 30- &amp; 90-Day Roadmap")}
+    <div class="roadmap-split">
+      <div class="roadmap-col">
+        <div class="roadmap-h">Best Query Opportunities</div>
+        ${queryGroups}
+      </div>
+      <div class="roadmap-col">
+        <div class="roadmap-h">Implementation Roadmap</div>
+        <div class="focus-bar focus-30">30-Day Focus</div>
+        <ul class="focus-list">${data.roadmap.day30.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+        <div class="focus-bar focus-90">90-Day Focus</div>
+        <ul class="focus-list">${data.roadmap.day90.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+      </div>
     </div>
-    <p class="conclusion-text">${escapeHtml(conclusion.text)}</p>
-    <p class="conclusion-recommendation"><strong>Recommendation:</strong> ${escapeHtml(conclusion.recommendation)}</p>
-    <div class="chain">${escapeHtml(conclusion.chain)}</div>
+
+    ${pageFooter(3)}
   </section>`;
 }
 
-function pageFooter(data: AuditData, section: string): string {
-  return `<div class="page-footer"><span>${escapeHtml(data.client)}</span><span>${escapeHtml(section)}</span></div>`;
+// ---------------------------------------------------------------------------
+// Page 4 — Conclusion
+// ---------------------------------------------------------------------------
+
+function renderPage4(data: AuditData): string {
+  const conclusion: Conclusion = data.conclusion;
+  const nowCol = tierColor(conclusion.current);
+
+  return `
+  <section class="page">
+    ${pageHeader(data, false)}
+
+    <div class="conc-card">
+      <div class="conc-left">
+        <div class="conc-eyebrow">Conclusion</div>
+        <p class="conc-text">${richText(conclusion.text)}</p>
+        <p class="conc-owns"><strong>Agent owns:</strong> ${escapeHtml(conclusion.agentOwns)} <strong>Specialist owns:</strong> ${escapeHtml(conclusion.specialistOwns)}</p>
+      </div>
+      <div class="conc-divider"></div>
+      <div class="conc-right">
+        <div class="conc-score"><div class="conc-label">Current</div><div class="conc-val" style="color:${nowCol}">${conclusion.current}</div></div>
+        <div class="conc-score"><div class="conc-label">After fixes</div><div class="conc-val conc-projected">${escapeHtml(conclusion.projected)}</div></div>
+        <div class="conc-of100">/100</div>
+      </div>
+    </div>
+
+    ${pageFooter(4)}
+  </section>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -359,10 +281,14 @@ const CSS = `
     --hero: #0E0E11;
     --orange: #FB7A00;
     --amber: #FFA300;
+    --ink: #14161F;
+    --muted: #5C6470;
+    --soft: #8A92A0;
+    --line: #E7EAEF;
+    --card: #F6F7F9;
   }
 
-  @page { size: Letter; margin: 0.7in 0.65in; }
-  @page cover { margin: 0; }
+  @page { size: Letter; margin: 0.55in 0.6in; }
 
   * { box-sizing: border-box; }
 
@@ -370,140 +296,161 @@ const CSS = `
     margin: 0;
     padding: 0;
     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-    color: #1F2937;
-    font-size: 13px;
+    color: var(--ink);
+    font-size: 10pt;
   }
 
   .page {
     break-before: page;
-    min-height: 9.6in;
+    min-height: 9.9in;
     display: flex;
     flex-direction: column;
   }
   .page:first-child { break-before: avoid; }
 
-  .page-footer {
+  /* Masthead */
+  .mh-eyebrow { color: var(--orange); font-weight: 700; font-size: 8pt; letter-spacing: 0.5px; }
+  .mh-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
+  .mh-name { font-weight: 700; font-size: 10.5pt; }
+  .mh-row-lg .mh-name { font-size: 17pt; font-weight: 800; letter-spacing: -0.3px; }
+  .mh-meta { font-size: 9pt; color: var(--muted); }
+  .mh-rule { height: 2px; background: var(--orange); margin: 8px 0 14px; }
+
+  /* Footer */
+  .pfoot {
     margin-top: auto;
     display: flex;
     justify-content: space-between;
-    font-size: 9px;
-    color: #9CA3AF;
-    border-top: 1px solid #E5E7EB;
+    font-size: 7.5pt;
+    color: var(--soft);
+    border-top: 1px solid var(--line);
     padding-top: 8px;
   }
 
-  .section-title {
-    font-size: 22px;
-    font-weight: 800;
-    margin: 0 0 16px;
-  }
-  .subsection-title { font-size: 15px; font-weight: 700; margin: 8px 0; }
-  .on-dark { color: #fff; }
-
-  /* Cover */
-  .cover {
-    page: cover;
-    break-before: avoid;
-    min-height: 11in;
+  /* Section bar */
+  .section-bar {
     background: var(--hero);
     color: #fff;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    gap: 10px;
-    padding: 0 1in;
+    font-weight: 700;
+    font-size: 9.5pt;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    border-radius: 6px;
+    margin: 14px 0 10px;
   }
-  .cover-eyebrow { letter-spacing: 0.2em; text-transform: uppercase; font-size: 12px; color: var(--amber); font-weight: 700; }
-  .cover-ring { margin: 12px 0; }
-  .cover-grade { font-size: 14px; font-weight: 600; color: var(--amber); }
-  .cover-client { font-size: 34px; font-weight: 800; margin: 4px 0; }
-  .cover-contact { font-size: 16px; color: #D1D5DB; }
-  .cover-meta { font-size: 13px; color: #9CA3AF; margin-top: 8px; }
-  .cover-date { font-size: 11px; color: #6B7280; margin-top: 4px; }
 
-  /* Scorecard */
-  .scorecard-grid { display: flex; gap: 24px; align-items: center; }
-  .scorecard-radar { flex-shrink: 0; }
-  .scorecard-bars { flex: 1; display: flex; flex-direction: column; gap: 10px; }
-  .hbar { display: flex; align-items: center; gap: 10px; }
-  .hbar-label { width: 150px; font-size: 12px; font-weight: 600; }
-  .hbar-track { flex: 1; height: 10px; background: #F3F4F6; border-radius: 6px; overflow: hidden; }
-  .hbar-fill { height: 100%; border-radius: 6px; }
-  .hbar-score { width: 28px; text-align: right; font-weight: 700; font-size: 12px; }
+  /* Page 1: score card */
+  .score-card {
+    background: var(--hero);
+    border-radius: 14px;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+  .score-right { color: #fff; }
+  .score-cap { font-size: 9pt; color: #A7AEBA; font-weight: 600; }
+  .score-big { font-size: 26pt; font-weight: 800; margin-top: 2px; }
+  .score-sub { font-size: 9.5pt; color: #C7CBD3; margin-top: 2px; }
+  .score-potential { font-size: 9pt; color: var(--amber); margin-top: 8px; }
+  .donut-num { font-weight: 800; }
+  .donut-sub { font-size: 12px; font-weight: 700; }
 
-  .donut-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 28px; }
-  .donut-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .donut-cell-label { font-size: 11px; font-weight: 600; text-align: center; color: #4B5563; }
+  .summary-box {
+    border-top: 2px solid var(--orange);
+    border-bottom: 2px solid var(--orange);
+    padding: 12px 2px;
+    margin-top: 14px;
+    font-size: 9.5pt;
+    line-height: 1.55;
+    color: #2A2E38;
+  }
 
-  /* Category pages */
-  .category-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-  .category-letter { font-size: 11px; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
-  .category-name { font-size: 22px; font-weight: 800; margin: 2px 0 0; }
-  .category-score { margin-left: auto; }
-  .tier-badge { color: #fff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
-  .category-lead { font-size: 14px; color: #374151; margin: 8px 0 20px; }
-  .category-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-  .col-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-  .col-title.strengths { color: #1BA85A; }
-  .col-title.problems { color: #E24A36; }
-  .col-title.fixes { color: var(--orange); }
-  .category-columns ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.5; }
-  .category-columns li { margin-bottom: 6px; }
+  .scorecard-panel {
+    background: var(--hero);
+    border-radius: 14px;
+    padding: 16px 20px 12px;
+    margin-top: 14px;
+  }
+  .scorecard-panel .section-bar { background: transparent; color: #fff; padding: 0 0 10px; margin: 0; }
+  .sc-grid { display: grid; gap: 16px; }
+  .sc-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .sc-cell .donut { display: block; }
+  .sc-name { color: #C7CBD3; font-size: 8.5pt; font-weight: 600; text-align: center; }
+  .tier-legend {
+    display: flex;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    font-size: 7.8pt;
+    font-weight: 700;
+  }
+  .tier-legend span { flex: 1; text-align: center; border-left: 1px solid rgba(255,255,255,0.12); }
+  .tier-legend span:first-child { border-left: none; }
 
-  /* Priority issue */
-  .priority-page { background: var(--hero); color: #fff; justify-content: center; padding: 0.4in 0.2in; }
-  .priority-text { font-size: 16px; line-height: 1.6; color: #E5E7EB; }
-  .chain { color: var(--amber); font-size: 12px; font-weight: 600; margin-top: 16px; }
+  /* Page 2: strengths / issues */
+  .split { display: flex; gap: 16px; }
+  .strengths-box, .issues-box { flex: 1; border-radius: 12px; padding: 14px 16px; }
+  .strengths-box { background: #EAF7F0; }
+  .issues-box { background: #FDEDEB; }
+  .split-h { font-weight: 700; font-size: 10.5pt; margin-bottom: 10px; }
+  .strengths-h { color: #1BA85A; }
+  .issues-h { color: #C0392B; }
+  .strengths-list { list-style: none; margin: 0; padding: 0; font-size: 9pt; line-height: 1.5; }
+  .strengths-list li { padding-left: 14px; position: relative; margin-bottom: 8px; }
+  .strengths-list li::before { content: "\\2022"; position: absolute; left: 0; color: #1BA85A; font-weight: 800; }
+  .issues-list { list-style: none; margin: 0; padding: 0; }
+  .issues-list li { margin-bottom: 10px; }
+  .issue-title { font-weight: 700; font-size: 9pt; color: #1F2937; }
+  .issue-text { font-size: 8.5pt; color: #5A6472; line-height: 1.45; margin-top: 1px; }
 
-  /* Action plan */
-  .severe-issues { list-style: none; margin: 0 0 24px; padding: 0; }
-  .severe-issues li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; margin-bottom: 8px; }
-  .badge-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 999px; background: var(--orange); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-  .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .plan-tier { border-top: 4px solid; padding-top: 10px; }
-  .plan-tier-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .plan-tier-name { font-weight: 700; font-size: 13px; }
-  .plan-tier-tag { color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
-  .plan-tier ul { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.5; }
-  .cta-banner { margin-top: 28px; background: var(--hero); color: #fff; text-align: center; padding: 14px; border-radius: 10px; font-weight: 700; font-size: 13px; }
+  .fix-table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 4px; }
+  .fix-table th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); padding: 5px 8px; border-bottom: 2px solid var(--line); }
+  .fix-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .fix-table tr:nth-child(even) td { background: var(--card); }
+  .fix-n { font-weight: 700; color: var(--orange); width: 24px; }
+  .fix-tl { font-weight: 700; white-space: nowrap; text-align: right; }
 
-  /* FAQ */
-  .faq-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-  .faq-question { color: var(--orange); font-weight: 700; font-size: 13px; margin-bottom: 4px; }
-  .faq-answer { font-size: 12px; line-height: 1.5; color: #374151; }
+  /* Page 3: answer blocks */
+  .answer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .answer-card { background: var(--card); border-radius: 10px; padding: 12px 14px; }
+  .answer-q { color: var(--orange); font-weight: 700; font-size: 9pt; margin-bottom: 6px; }
+  .answer-a { font-size: 8.3pt; line-height: 1.5; color: #3D4350; }
 
-  /* Pages + queries */
-  .pages-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px; }
-  .pages-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: #9CA3AF; padding: 4px 8px; border-bottom: 2px solid #E5E7EB; }
-  .pages-table td { padding: 6px 8px; border-bottom: 1px solid #F3F4F6; }
-  .priority-pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
-  .priority-high { background: #FEE2E2; color: #C0392B; }
-  .priority-medium { background: #FEF3C7; color: #92400E; }
-  .query-group { margin-bottom: 16px; }
-  .query-group-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
-  .query-pills { display: flex; flex-wrap: wrap; gap: 6px; }
-  .query-pill { font-size: 11px; background: #F3F4F6; color: #374151; padding: 4px 10px; border-radius: 999px; }
+  .roadmap-split { display: flex; gap: 20px; }
+  .roadmap-col { flex: 1; }
+  .roadmap-h { font-weight: 700; font-size: 9.5pt; margin-bottom: 8px; }
+  .query-group { margin-bottom: 12px; }
+  .query-group-h { color: var(--orange); font-weight: 700; font-size: 7.8pt; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 5px; }
+  .query-list, .focus-list { list-style: none; margin: 0; padding: 0; font-size: 8.5pt; line-height: 1.5; }
+  .query-list li, .focus-list li { padding-left: 12px; position: relative; margin-bottom: 4px; color: #3D4350; }
+  .query-list li::before, .focus-list li::before { content: "\\2022"; position: absolute; left: 0; color: var(--soft); }
+  .focus-bar { color: #fff; font-weight: 700; font-size: 8.5pt; padding: 5px 10px; border-radius: 5px; margin: 10px 0 8px; }
+  .focus-30 { background: var(--orange); }
+  .focus-90 { background: var(--amber); }
 
-  /* Fix list */
-  .fix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .fix-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: #9CA3AF; padding: 4px 8px; border-bottom: 2px solid #E5E7EB; }
-  .fix-table td { padding: 8px; border-bottom: 1px solid #F3F4F6; vertical-align: top; }
-  .fix-num { font-weight: 700; color: var(--orange); }
-  .fix-lift { font-weight: 700; white-space: nowrap; }
-  .difficulty-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-  .difficulty-specialist { background: #FEE2E2; color: #991B1B; }
-  .difficulty-medium { background: #FEF3C7; color: #92400E; }
-  .difficulty-agent { background: #DBEAFE; color: #1E40AF; }
-
-  /* Conclusion */
-  .conclusion-page { background: var(--hero); color: #fff; }
-  .score-progression { display: flex; align-items: center; gap: 20px; margin: 16px 0 24px; }
-  .score-box { display: flex; flex-direction: column; align-items: center; font-size: 32px; font-weight: 800; }
-  .score-box span { font-size: 11px; font-weight: 500; color: #9CA3AF; margin-top: 4px; }
-  .score-box.projected { color: var(--amber); }
-  .score-arrow { font-size: 24px; color: var(--amber); }
-  .conclusion-text { font-size: 14px; line-height: 1.6; color: #E5E7EB; }
-  .conclusion-recommendation { font-size: 13px; color: #fff; }
+  /* Page 4: conclusion */
+  .conc-card {
+    background: var(--hero);
+    color: #fff;
+    border-radius: 14px;
+    padding: 20px 24px;
+    display: flex;
+    gap: 24px;
+    margin-top: 8px;
+  }
+  .conc-left { flex: 1.6; }
+  .conc-eyebrow { color: var(--orange); font-weight: 700; font-size: 9pt; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 8px; }
+  .conc-text { font-size: 9.5pt; line-height: 1.6; color: #D7DAE2; margin: 0; }
+  .conc-owns { font-size: 8.5pt; color: #B0B8C8; margin-top: 10px; line-height: 1.6; }
+  .conc-divider { width: 1px; background: rgba(255,255,255,0.15); }
+  .conc-right { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+  .conc-score { text-align: center; }
+  .conc-label { font-size: 7.5pt; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.4px; }
+  .conc-val { font-size: 22pt; font-weight: 800; color: var(--orange); }
+  .conc-projected { color: #1BA85A; }
+  .conc-of100 { font-size: 8pt; color: #9CA3AF; margin-top: -4px; }
 `;
 
 // ---------------------------------------------------------------------------
@@ -511,17 +458,7 @@ const CSS = `
 // ---------------------------------------------------------------------------
 
 export function renderAuditHTML(data: AuditData): string {
-  const sections = [
-    renderCover(data),
-    renderScorecard(data),
-    ...data.categories.map((cat) => renderCategoryBlock(cat)),
-    data.priorityIssue ? renderPriorityIssue(data.priorityIssue) : "",
-    renderActionPlan(data),
-    data.faqs?.length ? renderFAQs(data.faqs) : "",
-    data.priorityPages?.length || data.aiQueries?.length ? renderPagesAndQueries(data) : "",
-    data.fixes?.length ? renderFixList(data.fixes) : "",
-    data.conclusion ? renderConclusion(data.conclusion) : "",
-  ];
+  const pages = [renderPage1(data), renderPage2(data), renderPage3(data), renderPage4(data)];
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -530,6 +467,6 @@ export function renderAuditHTML(data: AuditData): string {
   <title>${escapeHtml(data.client)} — AI Visibility Audit</title>
   <style>${CSS}</style>
 </head>
-<body>${sections.join("")}</body>
+<body>${pages.join("")}</body>
 </html>`;
 }
