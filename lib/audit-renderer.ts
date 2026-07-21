@@ -520,7 +520,7 @@ export function renderAuditHTML(data: AuditData): string {
     data.faqs?.length ? renderFAQs(data.faqs) : "",
     data.priorityPages?.length || data.aiQueries?.length ? renderPagesAndQueries(data) : "",
     data.fixes?.length ? renderFixList(data.fixes) : "",
-    data.conclusion ? renderConclusion(data.conclusion, data) : "",
+    data.conclusion ? renderConclusion(data.conclusion) : "",
   ];
 
   return `<!DOCTYPE html>
