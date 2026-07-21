@@ -14,30 +14,6 @@ function parseAuditData(raw: string): AuditData {
   if (!parsed || typeof parsed !== "object") {
     throw new Error("JSON must be an object matching the audit schema.");
   }
-  if (!Array.isArray(parsed.categories) || parsed.categories.length === 0) {
-    throw new Error("`categories` must be a non-empty array of {name, score}.");
-  }
-  if (!Array.isArray(parsed.keyStrengths) || parsed.keyStrengths.length !== 5) {
-    throw new Error("`keyStrengths` must be an array of exactly 5 items.");
-  }
-  if (!Array.isArray(parsed.mainIssues) || parsed.mainIssues.length !== 5) {
-    throw new Error("`mainIssues` must be an array of exactly 5 {title, text} items.");
-  }
-  if (!Array.isArray(parsed.fixes) || parsed.fixes.length === 0) {
-    throw new Error("`fixes` must be a non-empty array of {n, fix, timeline}.");
-  }
-  if (!Array.isArray(parsed.coreAnswers) || parsed.coreAnswers.length !== 3) {
-    throw new Error("`coreAnswers` must be an array of exactly 3 {q, a} items.");
-  }
-  if (!Array.isArray(parsed.queryGroups) || parsed.queryGroups.length === 0) {
-    throw new Error("`queryGroups` must be a non-empty array of {group, items}.");
-  }
-  if (!parsed.roadmap || !Array.isArray(parsed.roadmap.day30) || !Array.isArray(parsed.roadmap.day90)) {
-    throw new Error("`roadmap` must have `day30` and `day90` arrays.");
-  }
-  if (!parsed.conclusion || typeof parsed.conclusion.current !== "number") {
-    throw new Error("`conclusion` must include a numeric `current` score.");
-  }
   return parsed as AuditData;
 }
 

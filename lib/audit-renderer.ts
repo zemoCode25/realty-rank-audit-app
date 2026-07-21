@@ -13,8 +13,10 @@ import type {
 } from "@/lib/types";
 import { tierColor, tierLabel } from "@/lib/utils";
 
-function escapeHtml(str: string): string {
-  return str
+// Audit JSON is user-pasted and only loosely validated, so every field here
+// may be missing — coerce to a string instead of throwing.
+function escapeHtml(str: string | number | undefined | null): string {
+  return String(str ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -22,8 +24,12 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function safeArray<T>(arr: T[] | undefined | null): T[] {
+  return Array.isArray(arr) ? arr : [];
+}
+
 // Minimal **bold** support so a summary/conclusion can emphasize a key phrase.
-function richText(str: string): string {
+function richText(str: string | undefined | null): string {
   const escaped = escapeHtml(str);
   return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
@@ -39,17 +45,18 @@ const TIMELINE_COLOR: Record<Fix["timeline"], string> = {
 // ---------------------------------------------------------------------------
 
 function donut(
-  value: number,
+  value: number | undefined | null,
   opts: { size?: number; sw?: number; fs?: number; subLabel?: string; track?: string } = {}
 ): string {
+  const v = typeof value === "number" && !Number.isNaN(value) ? value : 0;
   const { size = 96, sw = 10, fs = 28, subLabel, track = "#EAEDF2" } = opts;
   const r = (size - sw) / 2;
   const cx = size / 2;
   const cy = size / 2;
   const C = 2 * Math.PI * r;
-  const filled = (value / 100) * C;
+  const filled = (v / 100) * C;
   const gap = C - filled;
-  const col = tierColor(value);
+  const col = tierColor(v);
   const numY = subLabel ? cy + fs * 0.18 : cy + fs * 0.355;
 
   return `
@@ -58,7 +65,7 @@ function donut(
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="${sw}"
       stroke-linecap="round" stroke-dasharray="${filled.toFixed(2)} ${gap.toFixed(2)}"
       transform="rotate(-90 ${cx} ${cy})" />
-    <text x="${cx}" y="${numY}" text-anchor="middle" class="donut-num" style="font-size:${fs}px;fill:${col}">${Math.round(value)}</text>
+    <text x="${cx}" y="${numY}" text-anchor="middle" class="donut-num" style="font-size:${fs}px;fill:${col}">${Math.round(v)}</text>
     ${subLabel ? `<text x="${cx}" y="${cy + fs * 0.64}" text-anchor="middle" class="donut-sub" style="fill:${col}">${escapeHtml(subLabel)}</text>` : ""}
   </svg>`;
 }
@@ -92,10 +99,12 @@ function sectionBar(text: string): string {
 // ---------------------------------------------------------------------------
 
 function renderPage1(data: AuditData): string {
-  const tier = tierLabel(data.overall);
-  const col = tierColor(data.overall);
+  const overall = data.overall ?? 0;
+  const tier = tierLabel(overall);
+  const col = tierColor(overall);
+  const categories = safeArray(data.categories);
 
-  const donuts = data.categories
+  const donuts = categories
     .map(
       (c: CategoryScore) => `
       <div class="sc-cell">
@@ -110,10 +119,10 @@ function renderPage1(data: AuditData): string {
     ${pageHeader(data, true)}
 
     <div class="score-card">
-      <div class="score-ring">${donut(data.overall, { size: 170, sw: 15, fs: 46, subLabel: tier, track: "#262A33" })}</div>
+      <div class="score-ring">${donut(overall, { size: 170, sw: 15, fs: 46, subLabel: tier, track: "#262A33" })}</div>
       <div class="score-right">
         <div class="score-cap">Overall AI Visibility Score</div>
-        <div class="score-big" style="color:${col}">${data.overall} / 100</div>
+        <div class="score-big" style="color:${col}">${overall} / 100</div>
         <div class="score-sub">${escapeHtml(tier)} — ${escapeHtml(data.market)}</div>
         <div class="score-potential">Conservative potential after fixes: <strong>${escapeHtml(data.potentialRange)} / 100</strong></div>
       </div>
@@ -123,7 +132,7 @@ function renderPage1(data: AuditData): string {
 
     <div class="scorecard-panel">
       ${sectionBar("Scorecard")}
-      <div class="sc-grid" style="grid-template-columns:repeat(${Math.min(data.categories.length, 3)},1fr)">${donuts}</div>
+      <div class="sc-grid" style="grid-template-columns:repeat(${Math.min(categories.length || 1, 3)},1fr)">${donuts}</div>
       <div class="tier-legend">
         <span style="color:#1BA85A">Strong &ge; 85</span>
         <span style="color:#F2A60C">Moderate 70&ndash;84</span>
@@ -141,8 +150,10 @@ function renderPage1(data: AuditData): string {
 // ---------------------------------------------------------------------------
 
 function renderPage2(data: AuditData): string {
-  const strengths = data.keyStrengths.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
-  const issues = data.mainIssues
+  const strengths = safeArray(data.keyStrengths)
+    .map((s) => `<li>${escapeHtml(s)}</li>`)
+    .join("");
+  const issues = safeArray(data.mainIssues)
     .map(
       (issue: MainIssue, i) => `
       <li>
@@ -152,13 +163,13 @@ function renderPage2(data: AuditData): string {
     )
     .join("");
 
-  const fixRows = data.fixes
+  const fixRows = safeArray(data.fixes)
     .map(
       (fix: Fix) => `
       <tr>
-        <td class="fix-n">${fix.n}</td>
+        <td class="fix-n">${escapeHtml(fix.n)}</td>
         <td class="fix-tx">${escapeHtml(fix.fix)}</td>
-        <td class="fix-tl" style="color:${TIMELINE_COLOR[fix.timeline]}">${escapeHtml(fix.timeline)}</td>
+        <td class="fix-tl" style="color:${TIMELINE_COLOR[fix.timeline] ?? "inherit"}">${escapeHtml(fix.timeline)}</td>
       </tr>`
     )
     .join("");
@@ -221,7 +232,7 @@ function renderPage3(data: AuditData): string {
     ${sectionBar("Recommended Core Answer Blocks")}
     <div class="answer-grid">${answers}</div>
 
-    ${sectionBar("AI Query Opportunities | 30- &amp; 90-Day Roadmap")}
+    ${sectionBar("AI Query Opportunities | 30- & 90-Day Roadmap")}
     <div class="roadmap-split">
       <div class="roadmap-col">
         <div class="roadmap-h">Best Query Opportunities</div>
