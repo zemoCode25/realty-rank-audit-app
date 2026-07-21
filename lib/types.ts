@@ -1,79 +1,14 @@
-// InboundREM RealtyRank — Audit Data Types
-// This is the rich schema the `realtyrank-json` Claude skill actually outputs
-// (see chris_hanway_audit.json for a full example). The rendered PDF report
-// compresses this down to a 3-4 page layout — see lib/audit-renderer.ts.
+// Type-only re-export of the AuditData shape. Runtime validation (Zod
+// schemas) lives in lib/schema.ts — see that file for the source of truth.
 
-export interface Category {
-  letter: string; // "A" – "F"
-  name: string; // "AI Crawlability"
-  score: number; // 0–100
-  icon: "crawl" | "entity" | "trust" | "answer" | "local" | "media";
-  radarLabel: string; // "AI\nCrawlability"
-  lead: string; // one-sentence summary
-  strengths: string[]; // 2–3 bullets
-  problems: string[]; // 2–3 bullets
-  fixes: string[]; // 3 bullets
-}
-
-export interface PlanTier {
-  name: string; // "Top Tier"
-  tag: string; // "Immediate"
-  color: string; // hex
-  items: string[]; // exactly 3
-}
-
-export interface PriorityIssue {
-  title: string;
-  text: string;
-  chain: string; // "Agent → Brand → … → site.com → Spec · Spec"
-}
-
-export interface FAQ {
-  question: string;
-  answer: string; // 40–80 words
-}
-
-export interface PriorityPage {
-  page: string;
-  purpose: string;
-  priority?: "High" | "Medium";
-}
-
-export interface AIQueryGroup {
-  group: string; // "Branded" | "Local" | "Service & Niche" | "Proof & Trust"
-  items: string[];
-}
-
-export interface Fix {
-  number: number;
-  description: string;
-  scoreLift: string; // "+3 to +5"
-  difficulty: "Specialist" | "Medium" | "Agent";
-}
-
-export interface Conclusion {
-  currentScore: number;
-  projectedScore: string; // "88–92"
-  text: string;
-  recommendation: string;
-  chain: string;
-}
-
-export interface AuditData {
-  overall: number;
-  client: string;
-  contact: string;
-  market: string;
-  site: string;
-  date: string;
-  overallTier?: string;
-  categories: Category[];
-  severeIssues: string[]; // exactly 5
-  actionPlan: PlanTier[]; // exactly 3
-  priorityIssue?: PriorityIssue | null;
-  faqs?: FAQ[]; // 6–9
-  priorityPages?: PriorityPage[]; // 8–14
-  aiQueries?: AIQueryGroup[]; // 3+ groups
-  fixes?: Fix[]; // 7–10
-  conclusion?: Conclusion | null;
-}
+export type {
+  AIQueryGroup,
+  AuditData,
+  Category,
+  Conclusion,
+  FAQ,
+  Fix,
+  PlanTier,
+  PriorityIssue,
+  PriorityPage,
+} from "@/lib/schema";
