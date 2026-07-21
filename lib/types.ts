@@ -1,61 +1,79 @@
 // InboundREM RealtyRank — Audit Data Types
-// Compressed 3-4 page report format (see AI_Visibility_Audit_PDF_SOP.md for the
-// original 10-13 page format this was condensed from).
+// This is the rich schema the `realtyrank-json` Claude skill actually outputs
+// (see chris_hanway_audit.json for a full example). The rendered PDF report
+// compresses this down to a 3-4 page layout — see lib/audit-renderer.ts.
 
-export interface CategoryScore {
-  name: string; // "Crawlability"
+export interface Category {
+  letter: string; // "A" – "F"
+  name: string; // "AI Crawlability"
   score: number; // 0–100
+  icon: "crawl" | "entity" | "trust" | "answer" | "local" | "media";
+  radarLabel: string; // "AI\nCrawlability"
+  lead: string; // one-sentence summary
+  strengths: string[]; // 2–3 bullets
+  problems: string[]; // 2–3 bullets
+  fixes: string[]; // 3 bullets
 }
 
-export interface MainIssue {
+export interface PlanTier {
+  name: string; // "Top Tier"
+  tag: string; // "Immediate"
+  color: string; // hex
+  items: string[]; // exactly 3
+}
+
+export interface PriorityIssue {
   title: string;
   text: string;
+  chain: string; // "Agent → Brand → … → site.com → Spec · Spec"
 }
 
-export interface Fix {
-  n: number;
-  fix: string;
-  timeline: "Immediate" | "30 Days" | "60 Days";
+export interface FAQ {
+  question: string;
+  answer: string; // 40–80 words
 }
 
-export interface CoreAnswer {
-  q: string;
-  a: string; // 40–80 words
+export interface PriorityPage {
+  page: string;
+  purpose: string;
+  priority?: "High" | "Medium";
 }
 
-export interface QueryGroup {
-  group: string; // "Branded" | "Local" | "Service" | "Proof"
+export interface AIQueryGroup {
+  group: string; // "Branded" | "Local" | "Service & Niche" | "Proof & Trust"
   items: string[];
 }
 
-export interface Roadmap {
-  day30: string[];
-  day90: string[];
+export interface Fix {
+  number: number;
+  description: string;
+  scoreLift: string; // "+3 to +5"
+  difficulty: "Specialist" | "Medium" | "Agent";
 }
 
 export interface Conclusion {
-  current: number;
-  projected: string; // "65–72"
+  currentScore: number;
+  projectedScore: string; // "88–92"
   text: string;
-  agentOwns: string;
-  specialistOwns: string;
+  recommendation: string;
+  chain: string;
 }
 
 export interface AuditData {
   overall: number;
-  client: string; // brand name, or "{Contact} — {Role}" when no distinct brand exists
+  client: string;
   contact: string;
-  market: string; // "Denver, CO"
-  site: string; // naked domain, or "no-personal-website-found"
+  market: string;
+  site: string;
   date: string;
-  potentialRange: string; // "65–72"
-  summary: string; // page 1 narrative paragraph
-  categories: CategoryScore[]; // scorecard donut grid
-  keyStrengths: string[]; // exactly 5
-  mainIssues: MainIssue[]; // exactly 5
-  fixes: Fix[]; // 7–10
-  coreAnswers: CoreAnswer[]; // exactly 3: who / brokerage / areas served
-  queryGroups: QueryGroup[]; // Branded / Local / Service / Proof
-  roadmap: Roadmap;
-  conclusion: Conclusion;
+  overallTier?: string;
+  categories: Category[];
+  severeIssues: string[]; // exactly 5
+  actionPlan: PlanTier[]; // exactly 3
+  priorityIssue?: PriorityIssue | null;
+  faqs?: FAQ[]; // 6–9
+  priorityPages?: PriorityPage[]; // 8–14
+  aiQueries?: AIQueryGroup[]; // 3+ groups
+  fixes?: Fix[]; // 7–10
+  conclusion?: Conclusion | null;
 }

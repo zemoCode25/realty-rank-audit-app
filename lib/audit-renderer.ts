@@ -1,20 +1,15 @@
 // Compressed 3-4 page HTML/CSS report generator, styled per the InboundREM
-// RealtyRank brand system (AI_Visibility_Audit.py / AI_Visibility_Audit_PDF_SOP.md),
-// condensed from the original 10-13 page layout into a single-glance report.
+// RealtyRank brand system (AI_Visibility_Audit.py / AI_Visibility_Audit_PDF_SOP.md).
+//
+// The input AuditData (lib/types.ts) is the rich, per-category schema the
+// `realtyrank-json` skill actually outputs (see chris_hanway_audit.json).
+// deriveCompressedView() below condenses that into the shorter view used by
+// the page renderers, so the report itself stays a 3-4 page single-glance
+// summary instead of the original 10-13 page format.
 
-import type {
-  AuditData,
-  CategoryScore,
-  Conclusion,
-  CoreAnswer,
-  Fix,
-  MainIssue,
-  QueryGroup,
-} from "@/lib/types";
+import type { AIQueryGroup, AuditData, Category, FAQ, Fix } from "@/lib/types";
 import { tierColor, tierLabel } from "@/lib/utils";
 
-// Audit JSON is user-pasted and only loosely validated, so every field here
-// may be missing — coerce to a string instead of throwing.
 function escapeHtml(str: string | number | undefined | null): string {
   return String(str ?? "")
     .replace(/&/g, "&amp;")
@@ -34,11 +29,119 @@ function richText(str: string | undefined | null): string {
   return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
 
-const TIMELINE_COLOR: Record<Fix["timeline"], string> = {
+type Timeline = "Immediate" | "30 Days" | "60 Days";
+
+const TIMELINE_COLOR: Record<Timeline, string> = {
   Immediate: "#FB7A00",
   "30 Days": "#F2A60C",
   "60 Days": "#8A92A0",
 };
+
+// ---------------------------------------------------------------------------
+// Compressed view model + derivation from the rich AuditData
+// ---------------------------------------------------------------------------
+
+interface CompressedView {
+  overall: number;
+  client: string;
+  contact: string;
+  market: string;
+  site: string;
+  date: string;
+  potentialRange: string;
+  summary: string;
+  categories: { name: string; score: number }[];
+  keyStrengths: string[];
+  mainIssues: { title: string; text: string }[];
+  fixes: { n: number; fix: string; timeline: Timeline }[];
+  coreAnswers: { q: string; a: string }[];
+  queryGroups: { group: string; items: string[] }[];
+  roadmap: { day30: string[]; day90: string[] };
+  conclusionCurrent: number;
+  conclusionProjected: string;
+  conclusionText: string;
+  conclusionRecommendation: string;
+}
+
+// The rich schema's prose (severeIssues, fix descriptions) runs long — cut it
+// back to a punchy bullet at a word boundary so the compressed pages don't overflow.
+function truncate(str: string, max: number): string {
+  if (str.length <= max) return str;
+  const cut = str.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  const base = lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut;
+  return base.trim().replace(/[.,;: —-]+$/, "") + "…";
+}
+
+// "No personal website exists — the single largest suppressor..." -> title/text
+function splitIssue(issue: string): { title: string; text: string } {
+  const dashIdx = issue.indexOf(" — ");
+  if (dashIdx > 0 && dashIdx < 80) {
+    return { title: issue.slice(0, dashIdx), text: truncate(issue.slice(dashIdx + 3).trim(), 100) };
+  }
+  const words = issue.split(" ");
+  const title = words.slice(0, 6).join(" ");
+  const rest = words.slice(6).join(" ");
+  return { title, text: truncate(rest || issue, 100) };
+}
+
+// Fixes are already ordered by impact, so bucket them into rough timeframes.
+function computeTimeline(index: number, total: number): Timeline {
+  const third = total / 3;
+  if (index < third) return "Immediate";
+  if (index < third * 2) return "30 Days";
+  return "60 Days";
+}
+
+function pickCoreAnswers(faqs: FAQ[]): { q: string; a: string }[] {
+  const findByPattern = (re: RegExp) => faqs.find((f) => re.test(f.question));
+  const picked = [findByPattern(/^who is/i), findByPattern(/brokerage/i), findByPattern(/areas?.*serve|serve.*areas?/i)].filter(
+    (f): f is FAQ => Boolean(f)
+  );
+  const remaining = faqs.filter((f) => !picked.includes(f));
+  return [...picked, ...remaining].slice(0, 3).map((f) => ({ q: f.question, a: truncate(f.answer, 210) }));
+}
+
+function deriveCompressedView(data: AuditData): CompressedView {
+  const categories = safeArray(data.categories);
+  const severeIssues = safeArray(data.severeIssues);
+  const richFixes = safeArray(data.fixes);
+  const faqs = safeArray(data.faqs);
+
+  const fixes = richFixes.map((f: Fix, i) => ({
+    n: f.number ?? i + 1,
+    fix: truncate(f.description, 85),
+    timeline: computeTimeline(i, richFixes.length),
+  }));
+
+  return {
+    overall: data.overall ?? 0,
+    client: data.client ?? "",
+    contact: data.contact ?? "",
+    market: data.market ?? "",
+    site: data.site ?? "",
+    date: data.date ?? "",
+    potentialRange: data.conclusion?.projectedScore ?? "",
+    summary: data.priorityIssue?.text ?? severeIssues[0] ?? "",
+    categories: categories.map((c: Category) => ({ name: c.name, score: c.score })),
+    keyStrengths: categories
+      .flatMap((c: Category) => safeArray(c.strengths))
+      .slice(0, 5)
+      .map((s) => truncate(s, 115)),
+    mainIssues: severeIssues.map(splitIssue),
+    fixes,
+    coreAnswers: pickCoreAnswers(faqs),
+    queryGroups: safeArray(data.aiQueries).map((g: AIQueryGroup) => ({ group: g.group, items: safeArray(g.items) })),
+    roadmap: {
+      day30: fixes.filter((f) => f.timeline === "Immediate").map((f) => f.fix),
+      day90: fixes.filter((f) => f.timeline !== "Immediate").map((f) => f.fix),
+    },
+    conclusionCurrent: data.conclusion?.currentScore ?? data.overall ?? 0,
+    conclusionProjected: data.conclusion?.projectedScore ?? "",
+    conclusionText: data.conclusion?.text ?? "",
+    conclusionRecommendation: data.conclusion?.recommendation ?? "",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Donut SVG (ported from AI_Visibility_Audit.py's donut())
@@ -74,13 +177,13 @@ function donut(
 // Shared chrome: masthead header + footer
 // ---------------------------------------------------------------------------
 
-function pageHeader(data: AuditData, big: boolean): string {
+function pageHeader(view: CompressedView, big: boolean): string {
   return `
   <div class="masthead">
     <div class="mh-eyebrow">INBOUNDREM &nbsp;|&nbsp; RealtyRank AI Visibility Audit</div>
     <div class="mh-row ${big ? "mh-row-lg" : ""}">
-      <div class="mh-name">${escapeHtml(data.contact)} / ${escapeHtml(data.client)}</div>
-      <div class="mh-meta">${escapeHtml(data.site)} &nbsp;|&nbsp; ${escapeHtml(data.date)}</div>
+      <div class="mh-name">${escapeHtml(view.contact)} / ${escapeHtml(view.client)}</div>
+      <div class="mh-meta">${escapeHtml(view.site)} &nbsp;|&nbsp; ${escapeHtml(view.date)}</div>
     </div>
   </div>
   <div class="mh-rule"></div>`;
@@ -94,19 +197,31 @@ function sectionBar(text: string): string {
   return `<div class="section-bar">${escapeHtml(text)}</div>`;
 }
 
+// Chromium's print pagination doesn't fragment flex containers reliably, so
+// the page-break boundary lives on a plain block `.page`, with the flex
+// column (used to pin the footer to the bottom) nested one level inside.
+function pageWrap(pageNum: number, view: CompressedView, big: boolean, contentHtml: string): string {
+  return `
+  <section class="page">
+    <div class="page-inner">
+      ${pageHeader(view, big)}
+      ${contentHtml}
+      ${pageFooter(pageNum)}
+    </div>
+  </section>`;
+}
+
 // ---------------------------------------------------------------------------
 // Page 1 — Cover + Scorecard
 // ---------------------------------------------------------------------------
 
-function renderPage1(data: AuditData): string {
-  const overall = data.overall ?? 0;
-  const tier = tierLabel(overall);
-  const col = tierColor(overall);
-  const categories = safeArray(data.categories);
+function renderPage1(view: CompressedView): string {
+  const tier = tierLabel(view.overall);
+  const col = tierColor(view.overall);
 
-  const donuts = categories
+  const donuts = view.categories
     .map(
-      (c: CategoryScore) => `
+      (c) => `
       <div class="sc-cell">
         ${donut(c.score, { size: 108, sw: 10, fs: 30, track: "#262A33" })}
         <div class="sc-name">${escapeHtml(c.name)}</div>
@@ -114,48 +229,42 @@ function renderPage1(data: AuditData): string {
     )
     .join("");
 
-  return `
-  <section class="page">
-    ${pageHeader(data, true)}
-
+  const content = `
     <div class="score-card">
-      <div class="score-ring">${donut(overall, { size: 170, sw: 15, fs: 46, subLabel: tier, track: "#262A33" })}</div>
+      <div class="score-ring">${donut(view.overall, { size: 170, sw: 15, fs: 46, subLabel: tier, track: "#262A33" })}</div>
       <div class="score-right">
         <div class="score-cap">Overall AI Visibility Score</div>
-        <div class="score-big" style="color:${col}">${overall} / 100</div>
-        <div class="score-sub">${escapeHtml(tier)} — ${escapeHtml(data.market)}</div>
-        <div class="score-potential">Conservative potential after fixes: <strong>${escapeHtml(data.potentialRange)} / 100</strong></div>
+        <div class="score-big" style="color:${col}">${view.overall} / 100</div>
+        <div class="score-sub">${escapeHtml(tier)} — ${escapeHtml(view.market)}</div>
+        ${view.potentialRange ? `<div class="score-potential">Conservative potential after fixes: <strong>${escapeHtml(view.potentialRange)} / 100</strong></div>` : ""}
       </div>
     </div>
 
-    <div class="summary-box">${richText(data.summary)}</div>
+    <div class="summary-box">${richText(view.summary)}</div>
 
     <div class="scorecard-panel">
       ${sectionBar("Scorecard")}
-      <div class="sc-grid" style="grid-template-columns:repeat(${Math.min(categories.length || 1, 3)},1fr)">${donuts}</div>
+      <div class="sc-grid" style="grid-template-columns:repeat(${Math.min(view.categories.length || 1, 3)},1fr)">${donuts}</div>
       <div class="tier-legend">
         <span style="color:#1BA85A">Strong &ge; 85</span>
         <span style="color:#F2A60C">Moderate 70&ndash;84</span>
         <span style="color:#E24A36">Weak 60&ndash;69</span>
         <span style="color:#C0392B">Critical &lt; 60</span>
       </div>
-    </div>
+    </div>`;
 
-    ${pageFooter(1)}
-  </section>`;
+  return pageWrap(1, view, true, content);
 }
 
 // ---------------------------------------------------------------------------
 // Page 2 — Key Strengths & Main Issues + Highest-Priority Fixes
 // ---------------------------------------------------------------------------
 
-function renderPage2(data: AuditData): string {
-  const strengths = safeArray(data.keyStrengths)
-    .map((s) => `<li>${escapeHtml(s)}</li>`)
-    .join("");
-  const issues = safeArray(data.mainIssues)
+function renderPage2(view: CompressedView): string {
+  const strengths = view.keyStrengths.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+  const issues = view.mainIssues
     .map(
-      (issue: MainIssue, i) => `
+      (issue, i) => `
       <li>
         <div class="issue-title">${i + 1}. ${escapeHtml(issue.title)}</div>
         <div class="issue-text">${escapeHtml(issue.text)}</div>
@@ -163,9 +272,9 @@ function renderPage2(data: AuditData): string {
     )
     .join("");
 
-  const fixRows = safeArray(data.fixes)
+  const fixRows = view.fixes
     .map(
-      (fix: Fix) => `
+      (fix) => `
       <tr>
         <td class="fix-n">${escapeHtml(fix.n)}</td>
         <td class="fix-tx">${escapeHtml(fix.fix)}</td>
@@ -174,10 +283,7 @@ function renderPage2(data: AuditData): string {
     )
     .join("");
 
-  return `
-  <section class="page">
-    ${pageHeader(data, false)}
-
+  const content = `
     ${sectionBar("Key Strengths & Main Issues")}
     <div class="split">
       <div class="strengths-box">
@@ -194,20 +300,19 @@ function renderPage2(data: AuditData): string {
     <table class="fix-table">
       <thead><tr><th>#</th><th>Fix</th><th>Timeline</th></tr></thead>
       <tbody>${fixRows}</tbody>
-    </table>
+    </table>`;
 
-    ${pageFooter(2)}
-  </section>`;
+  return pageWrap(2, view, false, content);
 }
 
 // ---------------------------------------------------------------------------
 // Page 3 — Recommended Core Answer Blocks + AI Query Opportunities / Roadmap
 // ---------------------------------------------------------------------------
 
-function renderPage3(data: AuditData): string {
-  const answers = safeArray(data.coreAnswers)
+function renderPage3(view: CompressedView): string {
+  const answers = view.coreAnswers
     .map(
-      (a: CoreAnswer) => `
+      (a) => `
       <div class="answer-card">
         <div class="answer-q">${escapeHtml(a.q)}</div>
         <div class="answer-a">${escapeHtml(a.a)}</div>
@@ -215,20 +320,17 @@ function renderPage3(data: AuditData): string {
     )
     .join("");
 
-  const queryGroups = safeArray(data.queryGroups)
+  const queryGroups = view.queryGroups
     .map(
-      (g: QueryGroup) => `
+      (g) => `
       <div class="query-group">
         <div class="query-group-h">${escapeHtml(g.group)}</div>
-        <ul class="query-list">${safeArray(g.items).map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
+        <ul class="query-list">${g.items.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
       </div>`
     )
     .join("");
 
-  return `
-  <section class="page">
-    ${pageHeader(data, false)}
-
+  const content = `
     ${sectionBar("Recommended Core Answer Blocks")}
     <div class="answer-grid">${answers}</div>
 
@@ -241,45 +343,38 @@ function renderPage3(data: AuditData): string {
       <div class="roadmap-col">
         <div class="roadmap-h">Implementation Roadmap</div>
         <div class="focus-bar focus-30">30-Day Focus</div>
-        <ul class="focus-list">${safeArray(data.roadmap?.day30).map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+        <ul class="focus-list">${view.roadmap.day30.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
         <div class="focus-bar focus-90">90-Day Focus</div>
-        <ul class="focus-list">${safeArray(data.roadmap?.day90).map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+        <ul class="focus-list">${view.roadmap.day90.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
       </div>
-    </div>
+    </div>`;
 
-    ${pageFooter(3)}
-  </section>`;
+  return pageWrap(3, view, false, content);
 }
 
 // ---------------------------------------------------------------------------
 // Page 4 — Conclusion
 // ---------------------------------------------------------------------------
 
-function renderPage4(data: AuditData): string {
-  const conclusion: Partial<Conclusion> = data.conclusion ?? {};
-  const current = conclusion.current ?? 0;
-  const nowCol = tierColor(current);
+function renderPage4(view: CompressedView): string {
+  const nowCol = tierColor(view.conclusionCurrent);
 
-  return `
-  <section class="page">
-    ${pageHeader(data, false)}
-
+  const content = `
     <div class="conc-card">
       <div class="conc-left">
         <div class="conc-eyebrow">Conclusion</div>
-        <p class="conc-text">${richText(conclusion.text)}</p>
-        <p class="conc-owns"><strong>Agent owns:</strong> ${escapeHtml(conclusion.agentOwns)} <strong>Specialist owns:</strong> ${escapeHtml(conclusion.specialistOwns)}</p>
+        <p class="conc-text">${richText(view.conclusionText)}</p>
+        ${view.conclusionRecommendation ? `<p class="conc-owns"><strong>Recommendation:</strong> ${escapeHtml(view.conclusionRecommendation)}</p>` : ""}
       </div>
       <div class="conc-divider"></div>
       <div class="conc-right">
-        <div class="conc-score"><div class="conc-label">Current</div><div class="conc-val" style="color:${nowCol}">${current}</div></div>
-        <div class="conc-score"><div class="conc-label">After fixes</div><div class="conc-val conc-projected">${escapeHtml(conclusion.projected)}</div></div>
+        <div class="conc-score"><div class="conc-label">Current</div><div class="conc-val" style="color:${nowCol}">${view.conclusionCurrent}</div></div>
+        <div class="conc-score"><div class="conc-label">After fixes</div><div class="conc-val conc-projected">${escapeHtml(view.conclusionProjected)}</div></div>
         <div class="conc-of100">/100</div>
       </div>
-    </div>
+    </div>`;
 
-    ${pageFooter(4)}
-  </section>`;
+  return pageWrap(4, view, false, content);
 }
 
 // ---------------------------------------------------------------------------
@@ -314,11 +409,13 @@ const CSS = `
 
   .page {
     break-before: page;
-    min-height: 9.9in;
+  }
+  .page:first-child { break-before: avoid; }
+  .page-inner {
+    min-height: 9.6in;
     display: flex;
     flex-direction: column;
   }
-  .page:first-child { break-before: avoid; }
 
   /* Masthead */
   .mh-eyebrow { color: var(--orange); font-weight: 700; font-size: 8pt; letter-spacing: 0.5px; }
@@ -413,13 +510,13 @@ const CSS = `
   .strengths-list li { padding-left: 14px; position: relative; margin-bottom: 8px; }
   .strengths-list li::before { content: "\\2022"; position: absolute; left: 0; color: #1BA85A; font-weight: 800; }
   .issues-list { list-style: none; margin: 0; padding: 0; }
-  .issues-list li { margin-bottom: 10px; }
-  .issue-title { font-weight: 700; font-size: 9pt; color: #1F2937; }
-  .issue-text { font-size: 8.5pt; color: #5A6472; line-height: 1.45; margin-top: 1px; }
+  .issues-list li { margin-bottom: 6px; }
+  .issue-title { font-weight: 700; font-size: 8.6pt; color: #1F2937; }
+  .issue-text { font-size: 8.2pt; color: #5A6472; line-height: 1.35; margin-top: 1px; }
 
-  .fix-table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 4px; }
-  .fix-table th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); padding: 5px 8px; border-bottom: 2px solid var(--line); }
-  .fix-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .fix-table { width: 100%; border-collapse: collapse; font-size: 8.3pt; margin-top: 4px; }
+  .fix-table th { text-align: left; font-size: 7.2pt; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); padding: 4px 8px; border-bottom: 2px solid var(--line); }
+  .fix-table td { padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.3; }
   .fix-table tr:nth-child(even) td { background: var(--card); }
   .fix-n { font-weight: 700; color: var(--orange); width: 24px; }
   .fix-tl { font-weight: 700; white-space: nowrap; text-align: right; }
@@ -470,13 +567,14 @@ const CSS = `
 // ---------------------------------------------------------------------------
 
 export function renderAuditHTML(data: AuditData): string {
-  const pages = [renderPage1(data), renderPage2(data), renderPage3(data), renderPage4(data)];
+  const view = deriveCompressedView(data);
+  const pages = [renderPage1(view), renderPage2(view), renderPage3(view), renderPage4(view)];
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(data.client)} — AI Visibility Audit</title>
+  <title>${escapeHtml(view.client)} — AI Visibility Audit</title>
   <style>${CSS}</style>
 </head>
 <body>${pages.join("")}</body>
