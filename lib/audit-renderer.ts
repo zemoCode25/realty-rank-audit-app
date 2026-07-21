@@ -205,7 +205,7 @@ function renderPage2(data: AuditData): string {
 // ---------------------------------------------------------------------------
 
 function renderPage3(data: AuditData): string {
-  const answers = data.coreAnswers
+  const answers = safeArray(data.coreAnswers)
     .map(
       (a: CoreAnswer) => `
       <div class="answer-card">
@@ -215,12 +215,12 @@ function renderPage3(data: AuditData): string {
     )
     .join("");
 
-  const queryGroups = data.queryGroups
+  const queryGroups = safeArray(data.queryGroups)
     .map(
       (g: QueryGroup) => `
       <div class="query-group">
         <div class="query-group-h">${escapeHtml(g.group)}</div>
-        <ul class="query-list">${g.items.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
+        <ul class="query-list">${safeArray(g.items).map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
       </div>`
     )
     .join("");
@@ -241,9 +241,9 @@ function renderPage3(data: AuditData): string {
       <div class="roadmap-col">
         <div class="roadmap-h">Implementation Roadmap</div>
         <div class="focus-bar focus-30">30-Day Focus</div>
-        <ul class="focus-list">${data.roadmap.day30.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+        <ul class="focus-list">${safeArray(data.roadmap?.day30).map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
         <div class="focus-bar focus-90">90-Day Focus</div>
-        <ul class="focus-list">${data.roadmap.day90.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+        <ul class="focus-list">${safeArray(data.roadmap?.day90).map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
       </div>
     </div>
 
@@ -256,8 +256,9 @@ function renderPage3(data: AuditData): string {
 // ---------------------------------------------------------------------------
 
 function renderPage4(data: AuditData): string {
-  const conclusion: Conclusion = data.conclusion;
-  const nowCol = tierColor(conclusion.current);
+  const conclusion: Partial<Conclusion> = data.conclusion ?? {};
+  const current = conclusion.current ?? 0;
+  const nowCol = tierColor(current);
 
   return `
   <section class="page">
@@ -271,7 +272,7 @@ function renderPage4(data: AuditData): string {
       </div>
       <div class="conc-divider"></div>
       <div class="conc-right">
-        <div class="conc-score"><div class="conc-label">Current</div><div class="conc-val" style="color:${nowCol}">${conclusion.current}</div></div>
+        <div class="conc-score"><div class="conc-label">Current</div><div class="conc-val" style="color:${nowCol}">${current}</div></div>
         <div class="conc-score"><div class="conc-label">After fixes</div><div class="conc-val conc-projected">${escapeHtml(conclusion.projected)}</div></div>
         <div class="conc-of100">/100</div>
       </div>

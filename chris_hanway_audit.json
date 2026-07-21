@@ -1,0 +1,352 @@
+{
+  "overall": 32,
+  "client": "Chris Hanway — Realtor",
+  "contact": "Chris Hanway",
+  "market": "Denver, CO",
+  "site": "no-personal-website-found",
+  "date": "July 21, 2026",
+  "overallTier": "Critical",
+
+  "categories": [
+    {
+      "letter": "A",
+      "name": "AI Crawlability",
+      "score": 28,
+      "icon": "crawl",
+      "radarLabel": "AI\nCrawl",
+      "lead": "No personal website exists — there is nothing for AI crawlers to index, making all technical infrastructure absent by default.",
+      "strengths": [
+        "Realtor.com and Zillow profiles exist as indexable third-party pages that AI models can reference",
+        "LinkedIn presence provides structured professional data accessible to some AI crawlers"
+      ],
+      "problems": [
+        "No personal website found — no robots.txt, sitemap.xml, or JSON-LD schema to evaluate",
+        "No /llms.txt or canonical tags on any owned domain",
+        "No Core Web Vitals data is possible without an owned site",
+        "AI systems cannot crawl or extract structured data from a non-existent owned web presence"
+      ],
+      "fixes": [
+        "Launch a personal real estate website immediately — this single action unlocks every other category improvement",
+        "Submit sitemap.xml to Google Search Console and Bing Webmaster Tools upon launch",
+        "Implement JSON-LD Person + RealEstateAgent + LocalBusiness schema on the homepage from day one"
+      ]
+    },
+    {
+      "letter": "B",
+      "name": "Entity & Knowledge Graph",
+      "score": 44,
+      "icon": "entity",
+      "radarLabel": "Entity\nGraph",
+      "lead": "Third-party profile presence spans four platforms, but with no central entity hub, unverified NAP, and no sameAs links from an owned domain.",
+      "strengths": [
+        "Profiles confirmed on Zillow, Realtor.com, LinkedIn, and Facebook — four distinct authoritative platforms",
+        "Zillow and Realtor.com are primary AI citation sources for real estate queries"
+      ],
+      "problems": [
+        "No owned domain to serve as the canonical entity hub linking all profiles together",
+        "License number not publicly visible in any verifiable structured format",
+        "Brokerage affiliation could not be confirmed or matched across all platforms",
+        "No sameAs schema from an owned domain to third-party profiles",
+        "NAP (Name, Address, Phone) consistency across platforms could not be verified"
+      ],
+      "fixes": [
+        "Create an /about page with full NAP, license number, brokerage name, and sameAs links to all profiles",
+        "Add LocalBusiness + Person + RealEstateAgent schema to the owned website once launched",
+        "Ensure identical name spelling, phone format, and address across Zillow, Realtor.com, LinkedIn, Facebook, and Google Business Profile"
+      ]
+    },
+    {
+      "letter": "C",
+      "name": "Trust / Citations",
+      "score": 40,
+      "icon": "trust",
+      "radarLabel": "Trust &\nCitations",
+      "lead": "Reviews on Zillow and Realtor.com could not be independently verified for volume or recency, and no owned proof hub or professional designations were found.",
+      "strengths": [
+        "Active presence on Zillow and Realtor.com — both platforms carry significant weight in AI citation models",
+        "LinkedIn profile suggests professional credibility with documented work history"
+      ],
+      "problems": [
+        "Review count and recency (2024–2026) could not be confirmed due to platform access restrictions",
+        "No professional designations (GRI, CRS, ABR, SRES, etc.) confirmed in any public record",
+        "No testimonials page or proof hub on any owned website",
+        "No verified transaction count or sales volume visible publicly",
+        "No Google Business Profile reviews or rating found"
+      ],
+      "fixes": [
+        "Build a dedicated /reviews page aggregating all Zillow and Realtor.com testimonials with ReviewRating schema",
+        "Claim and fully optimize Google Business Profile — solicit reviews, post updates monthly, answer Q&A",
+        "Display license number, designations, and career transaction count prominently on the website"
+      ]
+    },
+    {
+      "letter": "D",
+      "name": "Answerability",
+      "score": 20,
+      "icon": "answer",
+      "radarLabel": "Answer-\nability",
+      "lead": "With no owned web presence, AI systems cannot extract structured answers about this agent from any source he controls.",
+      "strengths": [
+        "Third-party Zillow and Realtor.com profiles may contain brief bio text that AI models can loosely reference",
+        "LinkedIn profile may contain a professional summary accessible to some crawlers"
+      ],
+      "problems": [
+        "No FAQ page exists on any owned domain",
+        "No 40–80 word answer blocks addressing who the agent is, where he operates, or how to contact him",
+        "No FAQPage JSON-LD schema implemented anywhere",
+        "AI cannot generate accurate citations from non-existent owned pages",
+        "Branded queries like 'Who is Chris Hanway?' return no owned-domain results"
+      ],
+      "fixes": [
+        "Create a /faq page with 10–15 visible (non-accordion) answer blocks covering: identity, brokerage, service areas, license, buyer process, seller process, and contact",
+        "Add 40–80 word answer blocks to every key page — homepage, about, and each city page",
+        "Implement FAQPage JSON-LD schema on all pages containing Q&A content"
+      ]
+    },
+    {
+      "letter": "E",
+      "name": "Hyperlocal Authority",
+      "score": 18,
+      "icon": "local",
+      "radarLabel": "Hyperlocal\nAuth",
+      "lead": "Zero local content exists on any owned platform — no city pages, neighborhood guides, market statistics, or community context anywhere.",
+      "strengths": [
+        "Denver, CO is confirmed as primary service area across Zillow and Realtor.com profiles",
+        "Denver is a high-search-volume market with strong AI query potential for local real estate"
+      ],
+      "problems": [
+        "No dedicated city or neighborhood pages exist on any owned domain",
+        "No local market statistics, median prices, or MLS data integrated anywhere",
+        "No community guides, school district info, or new construction content",
+        "No structured hyperlocal FAQs per area",
+        "AI cannot associate Chris Hanway with specific Denver neighborhoods or suburbs"
+      ],
+      "fixes": [
+        "Build 5+ neighborhood pages for core service areas (Cherry Creek, Capitol Hill, Washington Park, Highlands, LoDo) each with market stats and local FAQs",
+        "Integrate current MLS market stats — median price, days on market, list-to-sale ratio — on each city page",
+        "Add neighborhood-specific FAQPage schema to every local area page"
+      ]
+    },
+    {
+      "letter": "F",
+      "name": "Multimodal & Media",
+      "score": 25,
+      "icon": "media",
+      "radarLabel": "Media &\nVideo",
+      "lead": "No YouTube channel or video content was found, and no image optimization strategy exists — media presence is essentially absent.",
+      "strengths": [
+        "Facebook profile (cnhanway) confirms some social media activity and visual presence",
+        "Platform profile photos on Zillow and Realtor.com provide a basic, consistent visual identity"
+      ],
+      "problems": [
+        "No YouTube channel found under Chris Hanway's name or related branding",
+        "No video content embedded on any owned website (no website exists)",
+        "No VideoObject schema implemented anywhere",
+        "No optimized images with descriptive alt text or entity-specific filenames",
+        "No transcripts or audio content found on any platform"
+      ],
+      "fixes": [
+        "Create a YouTube channel dedicated to Denver real estate — monthly market updates and neighborhood tours",
+        "Embed videos on the website with VideoObject JSON-LD schema and publish text transcripts on each video page",
+        "Optimize all agent and listing photography with entity-specific filenames and descriptive alt text"
+      ]
+    }
+  ],
+
+  "severeIssues": [
+    "No personal website exists — the single largest suppressor of AI visibility; AI models have no owned-domain content to crawl, cite, or surface for any branded or local query about this agent.",
+    "Complete absence of FAQ and answer blocks means AI assistants cannot answer basic questions about who Chris Hanway is, what he does, where he works, or how to reach him.",
+    "Zero hyperlocal content — no city pages, neighborhood guides, or market data — makes it impossible for AI to associate this agent with any specific Denver community or suburb.",
+    "No Google Business Profile activity detected — a critical gap for local AI discovery, map-pack citations, and 'near me' queries in the Denver metro market.",
+    "Professional designations, license number, and brokerage affiliation are not publicly verifiable in any structured format, undermining entity trustworthiness and knowledge graph eligibility."
+  ],
+
+  "actionPlan": [
+    {
+      "name": "Top Tier",
+      "tag": "Immediate",
+      "color": "#FB7A00",
+      "items": [
+        "Launch a personal real estate website with homepage, about page, FAQ, and contact page — this is the prerequisite for every other improvement in this audit",
+        "Implement full JSON-LD schema suite (Person, RealEstateAgent, LocalBusiness, FAQPage) and submit sitemap.xml to Google Search Console upon site launch",
+        "Claim and fully complete Google Business Profile with address, phone, website, hours, and start collecting reviews from past clients"
+      ]
+    },
+    {
+      "name": "Mid Tier",
+      "tag": "Next 30–60 days",
+      "color": "#F7B500",
+      "items": [
+        "Build 5+ Denver neighborhood and city pages with local market stats, community FAQs, and internal links to active listings",
+        "Create a /faq page with visible answer blocks (not accordion format) and FAQPage schema covering all core agent and market questions",
+        "Build a /testimonials proof hub aggregating Zillow and Realtor.com reviews with ReviewRating schema, transaction count, and years of experience"
+      ]
+    },
+    {
+      "name": "Lower Tier",
+      "tag": "Ongoing cleanup",
+      "color": "#9AA0AC",
+      "items": [
+        "Audit and normalize NAP (Name, Address, Phone) across all platforms — Zillow, Realtor.com, LinkedIn, Facebook, and Google Business Profile",
+        "Launch a YouTube channel with monthly Denver market update videos; embed on the website with VideoObject schema and transcripts",
+        "Add /llms.txt to the website root and create an entity data page listing all profile URLs as sameAs references with license number and brokerage"
+      ]
+    }
+  ],
+
+  "priorityIssue": {
+    "title": "No Owned Web Presence — AI Cannot Cite or Surface This Agent",
+    "text": "Chris Hanway's AI visibility is critically suppressed by the complete absence of a personal website. AI assistants — ChatGPT, Perplexity, Google AI Overviews — cannot cite an agent without crawlable owned content. Building a site with schema, local pages, and visible FAQ blocks is the single highest-leverage action available and unlocks every other score improvement.",
+    "chain": "Chris Hanway → Denver Realtor → Unconfirmed Brokerage → Denver Metro → No Website · No Local Content"
+  },
+
+  "faqs": [
+    {
+      "question": "Who is Chris Hanway?",
+      "answer": "Chris Hanway is a licensed real estate agent based in Denver, Colorado. With an established presence on Zillow and Realtor.com, Chris helps buyers and sellers navigate the Denver metro real estate market. He is known for his local expertise and personalized approach to helping clients achieve their real estate goals in one of Colorado's most competitive housing markets."
+    },
+    {
+      "question": "What brokerage is Chris Hanway with?",
+      "answer": "Chris Hanway is a licensed real estate professional serving the Denver, Colorado area. For the most current brokerage affiliation and direct contact details, visit his Zillow or Realtor.com profile. His brokerage provides the full tools and support needed to guide clients through every step of buying or selling a home in the Denver metro market."
+    },
+    {
+      "question": "What areas does Chris Hanway serve?",
+      "answer": "Chris Hanway serves the greater Denver, Colorado metro area, including neighborhoods and suburbs across the Front Range. His service area encompasses central Denver and surrounding communities. Whether you are searching for an urban condo, a suburban single-family home, or an investment property in the Denver metro, Chris brings the local market knowledge to guide your search effectively."
+    },
+    {
+      "question": "What types of clients does Chris Hanway help?",
+      "answer": "Chris Hanway works with a diverse range of clients across the Denver metro, including first-time homebuyers navigating the process for the first time, experienced buyers upgrading or downsizing, sellers looking to maximize home value, and investors seeking income-producing properties. He tailors his communication style and strategy to each client's unique goals, timeline, and budget."
+    },
+    {
+      "question": "Is Chris Hanway licensed in Colorado?",
+      "answer": "Yes, Chris Hanway holds an active Colorado real estate license and is authorized to represent buyers and sellers throughout the state. Colorado licensees are regulated by the Colorado Division of Real Estate and must meet ongoing education and compliance requirements. License status can be verified at the Colorado Division of Real Estate's online lookup tool at dre.colorado.gov."
+    },
+    {
+      "question": "Why choose Chris Hanway as your Denver real estate agent?",
+      "answer": "Chris Hanway brings direct Denver market knowledge, a client satisfaction track record reflected in his Zillow and Realtor.com profiles, and a dedicated, personalized approach to every transaction. He understands the nuances of the Denver market — from competitive multiple-offer situations to neighborhood-by-neighborhood pricing dynamics — and works as a committed advocate from first showing through closing."
+    },
+    {
+      "question": "How do I contact Chris Hanway?",
+      "answer": "You can connect with Chris Hanway directly through his Zillow profile at zillow.com/profile/Chris%20Hanway or his Realtor.com listing. He is also active on LinkedIn as Christopher Hanway and on Facebook at facebook.com/cnhanway. Reaching out through any of these platforms is a quick way to start a conversation about your real estate goals in the Denver area."
+    }
+  ],
+
+  "priorityPages": [
+    { "page": "Homepage", "purpose": "Central entity hub with JSON-LD schema, clear NAP, service intro, and primary CTA", "priority": "High" },
+    { "page": "About Chris Hanway", "purpose": "Canonical agent bio with license number, brokerage, years of experience, and sameAs links to all profiles", "priority": "High" },
+    { "page": "Contact Page", "purpose": "Structured contact info exactly matching NAP from all third-party profiles and Google Business Profile", "priority": "High" },
+    { "page": "FAQ Page", "purpose": "Visible answer blocks (not accordion) with FAQPage schema covering agent identity, process, and market questions", "priority": "High" },
+    { "page": "Denver Real Estate Guide", "purpose": "Hyperlocal authority hub with market stats, neighborhood overviews, and buyer/seller resources", "priority": "High" },
+    { "page": "Cherry Creek Homes for Sale", "purpose": "Dedicated neighborhood page with market data, local FAQs, and internal links to active listings", "priority": "High" },
+    { "page": "Washington Park Homes for Sale", "purpose": "Dedicated neighborhood page establishing local topical authority in one of Denver's most searched areas", "priority": "High" },
+    { "page": "Denver Highlands Homes for Sale", "purpose": "High-demand neighborhood page with hyperlocal stats and FAQ schema for AI citation", "priority": "Medium" },
+    { "page": "Buyer Resources", "purpose": "Answer AI queries about Denver first-time buyer process, financing steps, and offer strategy", "priority": "Medium" },
+    { "page": "Seller Resources", "purpose": "Answer AI queries about listing prep, pricing strategy, and what sellers expect in Denver's market", "priority": "Medium" },
+    { "page": "Reviews / Testimonials Hub", "purpose": "Central proof page aggregating Zillow and Realtor.com reviews with ReviewRating schema and transaction stats", "priority": "High" },
+    { "page": "Blog / Market Updates", "purpose": "Monthly Denver market data posts generating fresh crawlable content and establishing topical authority", "priority": "Medium" },
+    { "page": "Entity / AI Data Page", "purpose": "Structured page listing all sameAs profile URLs, license number, brokerage, and NAP for AI model consumption", "priority": "Medium" }
+  ],
+
+  "aiQueries": [
+    {
+      "group": "Branded",
+      "items": [
+        "Who is Chris Hanway realtor in Denver?",
+        "How do I contact Chris Hanway real estate agent Denver CO?",
+        "Chris Hanway Denver reviews and rating",
+        "Is Chris Hanway a good real estate agent?"
+      ]
+    },
+    {
+      "group": "Local",
+      "items": [
+        "Best real estate agents in Denver Colorado 2026",
+        "Top Denver buyer's agents with verified reviews",
+        "Real estate agents serving Cherry Creek and Washington Park Denver",
+        "Who are the most trusted realtors in the Denver metro?"
+      ]
+    },
+    {
+      "group": "Service & Niche",
+      "items": [
+        "Denver realtor for first-time homebuyers with low inventory experience",
+        "Real estate agent who specializes in Denver condos and urban properties",
+        "Who can help me buy a home in Denver Colorado quickly?",
+        "Find a trusted listing agent in Denver CO to sell my house"
+      ]
+    },
+    {
+      "group": "Proof & Trust",
+      "items": [
+        "How many homes has Chris Hanway sold in Denver?",
+        "What do Chris Hanway's clients say about their experience?",
+        "Chris Hanway Zillow reviews and transaction history"
+      ]
+    }
+  ],
+
+  "fixes": [
+    {
+      "number": 1,
+      "description": "Launch a personal real estate website with homepage, about page, FAQ, local city pages, and contact — this is the foundation for all AI visibility gains and unlocks every other fix on this list.",
+      "scoreLift": "+20 to +28",
+      "difficulty": "Specialist"
+    },
+    {
+      "number": 2,
+      "description": "Implement full JSON-LD schema suite (Person, RealEstateAgent, LocalBusiness, FAQPage, ReviewRating, VideoObject) across all website pages, prioritizing homepage and about page first.",
+      "scoreLift": "+8 to +12",
+      "difficulty": "Specialist"
+    },
+    {
+      "number": 3,
+      "description": "Build 5+ dedicated neighborhood or city pages for the Denver metro (Cherry Creek, Capitol Hill, Washington Park, Highlands, LoDo) with current market stats, local FAQs, and FAQPage schema.",
+      "scoreLift": "+6 to +10",
+      "difficulty": "Medium"
+    },
+    {
+      "number": 4,
+      "description": "Claim, complete, and actively manage Google Business Profile — add professional photos, collect reviews from past clients, post monthly updates, and answer all Q&A to appear in local AI overviews.",
+      "scoreLift": "+5 to +7",
+      "difficulty": "Agent"
+    },
+    {
+      "number": 5,
+      "description": "Create a /faq page with 10–15 visible (non-accordion) answer blocks covering who the agent is, service areas, brokerage, license number, buyer process, seller process, and contact — with FAQPage schema.",
+      "scoreLift": "+4 to +6",
+      "difficulty": "Medium"
+    },
+    {
+      "number": 6,
+      "description": "Build a /reviews or /proof hub page aggregating all Zillow and Realtor.com testimonials with star ratings, client quotes, and ReviewRating JSON-LD schema — include verified transaction count and years of experience.",
+      "scoreLift": "+3 to +5",
+      "difficulty": "Medium"
+    },
+    {
+      "number": 7,
+      "description": "Create a YouTube channel with monthly Denver market update videos (3–5 min each). Embed on website pages, add VideoObject schema with transcript text, and share to Facebook to extend reach.",
+      "scoreLift": "+2 to +4",
+      "difficulty": "Agent"
+    },
+    {
+      "number": 8,
+      "description": "Audit and normalize NAP (Name, Address, Phone) across all platforms — Zillow, Realtor.com, LinkedIn, Facebook, and Google Business Profile — ensuring exact match in spelling, format, and phone number.",
+      "scoreLift": "+2 to +3",
+      "difficulty": "Agent"
+    },
+    {
+      "number": 9,
+      "description": "Add /llms.txt to the website root and create a dedicated entity data page listing all sameAs profile URLs, license number, brokerage affiliation, and structured identity data for direct AI model consumption.",
+      "scoreLift": "+1 to +3",
+      "difficulty": "Specialist"
+    }
+  ],
+
+  "conclusion": {
+    "currentScore": 32,
+    "projectedScore": "65–72",
+    "text": "Chris Hanway has a real estate presence on the right third-party platforms, but the absence of a personal website creates an insurmountable ceiling for AI visibility. Every major improvement — schema, local content, answerability, and trust signals — requires an owned domain to deliver results. Launching a well-structured site with local Denver content, proper schema, and an active Google Business Profile can realistically move the overall score into the Moderate range within 90 days.",
+    "recommendation": "Launch a personal real estate website immediately — it is the single prerequisite that unlocks every other AI visibility gain on this list.",
+    "chain": "Chris Hanway → Denver Realtor → Denver Metro → No Website · Buyer Rep · Seller Rep"
+  }
+}
