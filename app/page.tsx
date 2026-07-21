@@ -8,8 +8,8 @@ export default function Home() {
         <h1 className="mb-6 text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
           RealtyRank Audit
         </h1>
-        <Tabs defaultValue="paste">
-          <TabsList>
+        <Tabs defaultValue="paste" className="w-full">
+          <TabsList className="mb-4 w-full grid-cols-2">
             <TabsTrigger value="paste">Paste JSON</TabsTrigger>
             <TabsTrigger value="form">Fill Form</TabsTrigger>
           </TabsList>

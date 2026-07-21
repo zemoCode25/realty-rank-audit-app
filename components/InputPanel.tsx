@@ -5,16 +5,18 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { auditDataSchema, formatZodError } from "@/lib/schema";
 import type { AuditData } from "@/lib/types";
 
 const STORAGE_KEY = "realtyrank-audit-data";
 
 function parseAuditData(raw: string): AuditData {
-  const parsed = JSON.parse(raw);
-  if (!parsed || typeof parsed !== "object") {
-    throw new Error("JSON must be an object matching the audit schema.");
+  const json = JSON.parse(raw);
+  const result = auditDataSchema.safeParse(json);
+  if (!result.success) {
+    throw new Error(formatZodError(result.error));
   }
-  return parsed as AuditData;
+  return result.data;
 }
 
 export default function InputPanel() {
@@ -76,7 +78,7 @@ export default function InputPanel() {
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           placeholder="Paste the audit JSON from the realtyrank-json skill here..."
-          className="min-h-80 font-mono text-xs"
+          className="font-mono text-xs max-h-96 min-h-48 overflow-y-auto"
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
       </CardContent>
