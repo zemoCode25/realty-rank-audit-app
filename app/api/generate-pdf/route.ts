@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     });
 
     const filename = `${data.contact.replace(/\s+/g, "_")}_GEO_Audit.pdf`;
-    return new NextResponse(new Blob([pdf], { type: "application/pdf" }), {
+    return new NextResponse(new Blob([pdf.slice()], { type: "application/pdf" }), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,

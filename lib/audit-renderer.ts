@@ -329,7 +329,7 @@ function renderFixList(fixes: Fix[]): string {
   </section>`;
 }
 
-function renderConclusion(conclusion: Conclusion, data: AuditData): string {
+function renderConclusion(conclusion: Conclusion): string {
   return `
   <section class="page conclusion-page">
     <h2 class="section-title on-dark">Conclusion</h2>
