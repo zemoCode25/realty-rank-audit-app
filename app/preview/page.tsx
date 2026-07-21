@@ -26,9 +26,7 @@ export default function PreviewPage() {
         <p className="text-sm text-muted-foreground">
           No audit data to preview. Paste JSON and click &quot;Preview Report&quot; first.
         </p>
-        <Button asChild>
-          <Link href="/">Back to input</Link>
-        </Button>
+        <Button render={<Link href="/" />}>Back to input</Button>
       </div>
     );
   }
@@ -36,8 +34,8 @@ export default function PreviewPage() {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-center justify-between border-b p-3">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/">&larr; Back</Link>
+        <Button variant="outline" size="sm" render={<Link href="/" />}>
+          &larr; Back
         </Button>
       </div>
       <div className="flex-1">{data && <AuditPreview data={data} />}</div>
