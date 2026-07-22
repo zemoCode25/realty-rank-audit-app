@@ -83,9 +83,6 @@ export default function InputPanel() {
         {error && <p className="text-sm text-destructive">{error}</p>}
       </CardContent>
       <CardFooter className="flex gap-2">
-        <Button variant="outline" onClick={validate}>
-          Validate
-        </Button>
         <Button variant="secondary" onClick={handlePreview} disabled>
           Preview Report
         </Button>
