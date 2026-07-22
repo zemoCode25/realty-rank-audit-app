@@ -86,7 +86,7 @@ export default function InputPanel() {
         <Button variant="outline" onClick={validate}>
           Validate
         </Button>
-        <Button variant="secondary" onClick={handlePreview}>
+        <Button variant="secondary" onClick={handlePreview} disabled>
           Preview Report
         </Button>
         <Button onClick={handleGeneratePDF} disabled={isGenerating}>
