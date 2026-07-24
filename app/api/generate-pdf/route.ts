@@ -21,13 +21,14 @@ export async function POST(req: NextRequest) {
   const data: AuditData = await req.json();
   const html = renderAuditHTML(data);
 
-  const browser = await puppeteer.launch({
-    args: chromium.args,
-    executablePath: await resolveExecutablePath(),
-    headless: true,
-  });
-
+  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
   try {
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      executablePath: await resolveExecutablePath(),
+      headless: true,
+    });
+
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
 
@@ -44,7 +45,11 @@ export async function POST(req: NextRequest) {
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
+  } catch (err) {
+    console.error("generate-pdf failed:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   } finally {
-    await browser.close();
+    await browser?.close();
   }
 }

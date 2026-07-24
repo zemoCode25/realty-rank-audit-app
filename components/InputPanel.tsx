@@ -55,7 +55,8 @@ export default function InputPanel() {
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        throw new Error(`PDF generation failed (${res.status}).`);
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ? `PDF generation failed: ${body.error}` : `PDF generation failed (${res.status}).`);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
